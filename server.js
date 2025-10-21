@@ -8,7 +8,33 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+// 添加对text/plain格式的支持
+app.use(bodyParser.text({ type: 'text/plain' }));
 app.use(express.static('public'));
+
+// 处理text/plain格式的JSON数据
+app.use((req, res, next) => {
+  if (req.headers['content-type'] && req.headers['content-type'].includes('text/plain') && req.body) {
+    try {
+      // 尝试解析text/plain格式的JSON数据
+      req.body = JSON.parse(req.body);
+      console.log('成功解析text/plain格式的JSON数据');
+    } catch (error) {
+      console.log('无法解析text/plain格式的JSON数据:', error.message);
+    }
+  }
+  next();
+});
+
+// 调试中间件 - 记录请求详情
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  console.log('Query:', JSON.stringify(req.query, null, 2));
+  console.log('---');
+  next();
+});
 
 // 模拟数据库
 const orders = new Map();
@@ -21,7 +47,17 @@ function generateOrderId() {
 
 // 路由1: 创建支付订单
 app.post('/api/payment/create', (req, res) => {
-  const { amount, subject, bankCard } = req.body;
+  // 安全解构，提供默认值
+  const { amount, subject, bankCard } = req.body || {};
+  
+  // 验证请求体
+  if (!req.body) {
+    return res.status(400).json({
+      success: false,
+      code: 400,
+      message: '请求体为空，请确保Content-Type为application/json'
+    });
+  }
   
   const orderId = generateOrderId();
   const order = {
@@ -74,7 +110,26 @@ app.get('/api/payment/info/:orderId', (req, res) => {
 
 // 路由3: 提交支付密码（核心接口）
 app.post('/api/payment/validate', (req, res) => {
-  const { orderId, password } = req.body;
+  // 安全解构，提供默认值
+  const { orderId, password } = req.body || {};
+  
+  // 验证请求体
+  if (!req.body) {
+    return res.status(400).json({
+      success: false,
+      code: 400,
+      message: '请求体为空，请确保Content-Type为application/json'
+    });
+  }
+  
+  // 验证必需参数
+  if (!orderId || !password) {
+    return res.status(400).json({
+      success: false,
+      code: 400,
+      message: '缺少必需参数：orderId和password'
+    });
+  }
   
   const order = orders.get(orderId);
   
