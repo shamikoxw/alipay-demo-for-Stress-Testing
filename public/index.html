@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付宝 - 网上支付 安全快速！</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #eff0f1; }
+        
+        .header { background: #fff; border-bottom: 1px solid #d7d8d8; height: 50px; 
+                  display: flex; align-items: center; padding: 0 20px; }
+        .header .logo { font-size: 24px; font-weight: bold; color: #1677ff; }
+        
+        .container { max-width: 1080px; margin: 30px auto; background: #fff; 
+                     padding: 20px; border-radius: 4px; }
+        
+        .order-info { padding: 20px; border-bottom: 1px solid #eee; }
+        .order-amount { font-size: 24px; color: #ff8209; font-weight: bold; }
+        
+        .payment-method { padding: 20px; border: 2px solid #cad6ef; margin: 20px 0; 
+                         border-radius: 4px; cursor: pointer; }
+        .payment-method:hover { border-color: #85a1d4; }
+        .payment-method.selected { border-color: #1677ff; background: #f0f7ff; }
+        
+        .bank-info { display: flex; align-items: center; }
+        .bank-icon { width: 60px; height: 40px; margin-right: 15px; }
+        .bank-name { font-size: 16px; font-weight: bold; }
+        
+        .password-section { padding: 20px; }
+        .password-title { margin-bottom: 10px; font-size: 14px; }
+        .password-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
+        .password-input { width: 40px; height: 40px; border: 1px solid #ccc; 
+                         border-radius: 4px; text-align: center; font-size: 20px; }
+        .password-input:focus { outline: none; border-color: #1677ff; }
+        
+        .btn-submit { width: 228px; height: 40px; background: #1677ff; color: #fff; 
+                     border: none; border-radius: 4px; font-size: 16px; cursor: pointer; 
+                     margin-top: 20px; }
+        .btn-submit:hover { background: #0958d9; }
+        .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .success-check { color: #52c41a; margin-bottom: 10px; }
+        .error-message { color: #ff4d4f; margin-top: 10px; display: none; }
+        
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">支付宝收银台</div>
+    </div>
+    
+    <div class="container">
+        <div class="order-info">
+            <div style="margin-bottom: 10px;">
+                <strong>天猫Tmall</strong> - 苏宁易购集团股份有限公司苏宁采购中心
+            </div>
+            <div style="margin-bottom: 5px;">
+                <strong>商品信息:</strong> 罗技大师系列MX Master 3s无线蓝牙双模鼠标商务办公家用高端215
+            </div>
+            <div>
+                订单金额: <span class="order-amount" id="orderAmount">579.00</span> 元
+            </div>
+        </div>
+        
+        <div class="payment-method selected" id="bankCard">
+            <div class="bank-info">
+                <img class="bank-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Crect fill='%230066cc' width='60' height='40' rx='4'/%3E%3Ctext x='30' y='25' font-size='12' fill='white' text-anchor='middle'%3E建设%3C/text%3E%3C/svg%3E" alt="银行卡">
+                <div>
+                    <div class="bank-name">中国建设银行</div>
+                    <div style="color: #666;">****7061 储蓄卡 | 快捷</div>
+                </div>
+                <div style="margin-left: auto;">
+                    <span>支付 </span><span class="order-amount">579.00</span><span> 元</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="password-section">
+            <div class="success-check">✓ 安全设置检测成功！</div>
+            <div class="password-title">支付宝支付密码：</div>
+            <div class="password-inputs">
+                <input type="password" maxlength="1" class="password-input" id="pwd1">
+                <input type="password" maxlength="1" class="password-input" id="pwd2">
+                <input type="password" maxlength="1" class="password-input" id="pwd3">
+                <input type="password" maxlength="1" class="password-input" id="pwd4">
+                <input type="password" maxlength="1" class="password-input" id="pwd5">
+                <input type="password" maxlength="1" class="password-input" id="pwd6">
+            </div>
+            <a href="#" style="color: #1677ff; text-decoration: none;">忘记密码？</a>
+            <div class="error-message" id="errorMsg"></div>
+            <button class="btn-submit" id="btnSubmit" disabled>确 定</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div>支付处理中...</div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let orderId = 'ORDER' + Date.now();
+        const API_BASE = 'http://localhost:3000/api';
+        
+        // 密码输入框自动聚焦
+        const pwdInputs = document.querySelectorAll('.password-input');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const errorMsg = document.getElementById('errorMsg');
+        const loading = document.getElementById('loading');
+        
+        // 密码输入逻辑
+        pwdInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < pwdInputs.length - 1) {
+                    pwdInputs[index + 1].focus();
+                }
+                checkPasswordComplete();
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+                    pwdInputs[index - 1].focus();
+                }
+            });
+        });
+        
+        // 检查密码是否输入完整
+        function checkPasswordComplete() {
+            const allFilled = Array.from(pwdInputs).every(input => input.value.length === 1);
+            btnSubmit.disabled = !allFilled;
+        }
+        
+        // 获取密码
+        function getPassword() {
+            return Array.from(pwdInputs).map(input => input.value).join('');
+        }
+        
+        // 清空密码
+        function clearPassword() {
+            pwdInputs.forEach(input => input.value = '');
+            pwdInputs[0].focus();
+            btnSubmit.disabled = true;
+        }
+        
+        // 显示错误消息
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 提交支付
+        btnSubmit.addEventListener('click', async () => {
+            const password = getPassword();
+            
+            loading.classList.add('show');
+            btnSubmit.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}/payment/validate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, password })
+                });
+                
+                const result = await response.json();
+                
+                loading.classList.remove('show');
+                
+                if (result.success) {
+                    alert('支付成功！\n订单号: ' + orderId);
+                    clearPassword();
+                } else {
+                    showError(result.message || '支付失败，请重试');
+                    clearPassword();
+                }
+            } catch (error) {
+                loading.classList.remove('show');
+                showError('网络错误，请稍后重试');
+                clearPassword();
+            }
+        });
+        
+        // 页面加载时初始化
+        pwdInputs[0].focus();
+        console.log('测试订单ID:', orderId);
+        console.log('测试密码: 123456');
+    </script>
+</body>
+</html>
